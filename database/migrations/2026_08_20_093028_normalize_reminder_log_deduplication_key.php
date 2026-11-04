@@ -13,6 +13,8 @@ return new class extends Migration
         $this->ensureNormalizedKeysAreUnique();
 
         Schema::table('reminder_logs', function (Blueprint $table) {
+            // MySQL may use reminder_logs_unique to support the lease_id FK.
+            $table->dropForeign(['lease_id']);
             $table->dropUnique('reminder_logs_unique');
         });
 
@@ -36,12 +38,14 @@ return new class extends Migration
                 ['lease_id', 'period_start', 'reminder_type', 'overdue_days'],
                 'reminder_logs_unique',
             );
+            $table->foreign('lease_id')->references('id')->on('leases')->cascadeOnDelete();
         });
     }
 
     public function down(): void
     {
         Schema::table('reminder_logs', function (Blueprint $table) {
+            $table->dropForeign(['lease_id']);
             $table->dropUnique('reminder_logs_unique');
         });
 
@@ -68,26 +72,26 @@ return new class extends Migration
                 ['lease_id', 'period_start', 'reminder_type', 'overdue_days'],
                 'reminder_logs_unique',
             );
+            $table->foreign('lease_id')->references('id')->on('leases')->cascadeOnDelete();
         });
     }
 
     private function ensureNormalizedKeysAreUnique(): void
     {
-        $hasDuplicates = DB::table('reminder_logs')
-            ->select('lease_id', 'period_start', 'reminder_type')
-            ->selectRaw(
-                'COALESCE(overdue_days, ?) AS normalized_overdue_days',
-                [ReminderLog::NON_OVERDUE_DAYS],
-            )
-            ->groupBy('lease_id', 'period_start', 'reminder_type')
-            ->groupByRaw(
-                'COALESCE(overdue_days, ?)',
-                [ReminderLog::NON_OVERDUE_DAYS],
-            )
-            ->havingRaw('COUNT(*) > 1')
-            ->exists();
+        // Use a raw grouped query. Query Builder + bound COALESCE expressions
+        // trips MySQL ONLY_FULL_GROUP_BY even when the expressions match.
+        $normalizedDays = (int) ReminderLog::NON_OVERDUE_DAYS;
 
-        if ($hasDuplicates) {
+        $hasDuplicates = DB::selectOne(
+            "select exists(
+                select 1
+                from reminder_logs
+                group by lease_id, period_start, reminder_type, coalesce(overdue_days, {$normalizedDays})
+                having count(*) > 1
+            ) as `exists`"
+        );
+
+        if ((int) ($hasDuplicates->exists ?? 0) === 1) {
             throw new RuntimeException(
                 'Cannot normalize reminder_logs.overdue_days because duplicate reminder keys exist.',
             );

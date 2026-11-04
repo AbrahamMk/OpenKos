@@ -26,7 +26,6 @@ return new class extends Migration
         $this->dropLegacyIndexes();
 
         Schema::table('amenities', function (Blueprint $table): void {
-            $table->dropForeign(['owner_property_id']);
             $table->dropColumn('owner_property_id');
         });
 
@@ -147,6 +146,12 @@ return new class extends Migration
 
     private function dropLegacyIndexes(): void
     {
+        // Drop the FK first. On MySQL the property-scoped unique index may be
+        // the supporting index for owner_property_id and cannot be dropped otherwise.
+        Schema::table('amenities', function (Blueprint $table): void {
+            $table->dropForeign(['owner_property_id']);
+        });
+
         Schema::table('amenities', function (Blueprint $table): void {
             $table->dropIndex('amenities_owner_property_id_is_active_name_index');
             $table->dropIndex('amenities_scope_is_active_name_index');

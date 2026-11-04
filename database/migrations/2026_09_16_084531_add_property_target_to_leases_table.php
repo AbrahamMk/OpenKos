@@ -14,11 +14,11 @@ return new class extends Migration
             $table->foreignId('property_rate_id')->nullable()->after('unit_rate_id')->constrained()->restrictOnDelete();
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement('UPDATE leases SET property_id = units.property_id FROM units WHERE units.id = leases.unit_id');
-        } elseif (DB::getDriverName() === 'sqlite') {
-            DB::statement('UPDATE leases SET property_id = (SELECT property_id FROM units WHERE units.id = leases.unit_id) WHERE unit_id IS NOT NULL');
-        }
+        match (DB::getDriverName()) {
+            'pgsql' => DB::statement('UPDATE leases SET property_id = units.property_id FROM units WHERE units.id = leases.unit_id'),
+            'mysql', 'mariadb' => DB::statement('UPDATE leases INNER JOIN units ON units.id = leases.unit_id SET leases.property_id = units.property_id'),
+            default => DB::statement('UPDATE leases SET property_id = (SELECT property_id FROM units WHERE units.id = leases.unit_id) WHERE unit_id IS NOT NULL'),
+        };
 
         if (DB::table('leases')->whereNull('property_id')->exists()) {
             throw new RuntimeException('Every existing lease must have a property lineage before this migration can continue.');
@@ -62,7 +62,7 @@ return new class extends Migration
                 ->restrictOnDelete();
         });
 
-        DB::statement("CREATE UNIQUE INDEX leases_active_whole_property_unique ON leases (property_id) WHERE unit_id IS NULL AND status = 'active' AND deleted_at IS NULL");
+        $this->createActiveWholePropertyUniqueIndex();
 
         Schema::table('leases', function (Blueprint $table): void {
             $table->index(['property_id', 'status'], 'leases_property_status_index');
@@ -76,7 +76,7 @@ return new class extends Migration
             throw new RuntimeException('Refusing to roll back lease property targets while whole-property leases exist.');
         }
 
-        DB::statement('DROP INDEX IF EXISTS leases_active_whole_property_unique');
+        $this->dropActiveWholePropertyUniqueIndex();
 
         if (DB::getDriverName() === 'pgsql') {
             DB::statement('ALTER TABLE leases DROP CONSTRAINT IF EXISTS leases_target_rate_check');
@@ -109,5 +109,31 @@ return new class extends Migration
         Schema::table('unit_rates', function (Blueprint $table): void {
             $table->dropUnique('unit_rates_id_unit_unique');
         });
+    }
+
+    private function createActiveWholePropertyUniqueIndex(): void
+    {
+        match (DB::getDriverName()) {
+            'pgsql', 'sqlite' => DB::statement("CREATE UNIQUE INDEX leases_active_whole_property_unique ON leases (property_id) WHERE unit_id IS NULL AND status = 'active' AND deleted_at IS NULL"),
+            'mysql', 'mariadb' => Schema::table('leases', function (Blueprint $table): void {
+                $table->unsignedBigInteger('active_whole_property_key')->nullable()->storedAs(
+                    "IF(unit_id IS NULL AND status = 'active' AND deleted_at IS NULL, property_id, NULL)"
+                );
+                $table->unique('active_whole_property_key', 'leases_active_whole_property_unique');
+            }),
+            default => throw new LogicException('The lease property-target migration does not support this database driver.'),
+        };
+    }
+
+    private function dropActiveWholePropertyUniqueIndex(): void
+    {
+        match (DB::getDriverName()) {
+            'pgsql', 'sqlite' => DB::statement('DROP INDEX IF EXISTS leases_active_whole_property_unique'),
+            'mysql', 'mariadb' => Schema::table('leases', function (Blueprint $table): void {
+                $table->dropUnique('leases_active_whole_property_unique');
+                $table->dropColumn('active_whole_property_key');
+            }),
+            default => throw new LogicException('The lease property-target migration does not support this database driver.'),
+        };
     }
 };

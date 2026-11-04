@@ -27,8 +27,10 @@ return new class extends Migration
         )');
 
         Schema::table('leases', function (Blueprint $table) {
-            $table->dropIndex(['tenant_id', 'status']);
+            // MySQL may use leases_tenant_id_status_index to support the FK, so
+            // the foreign key must be dropped before that composite index.
             $table->dropForeign(['tenant_id']);
+            $table->dropIndex(['tenant_id', 'status']);
             $table->dropColumn('tenant_id');
         });
     }

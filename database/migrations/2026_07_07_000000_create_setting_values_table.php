@@ -34,7 +34,8 @@ return new class extends Migration
             $table->string('lease_id_prefix', 10)->default('LSX');
             $table->boolean('reminder_enabled')->default(true);
             $table->smallint('reminder_days_before')->default(3);
-            $table->json('reminder_overdue_intervals')->default('[1,3,7]');
+            // MySQL/MariaDB reject literal defaults on JSON columns (error 1101).
+            $table->json('reminder_overdue_intervals')->nullable();
             $table->text('reminder_message_template')->nullable();
             $table->string('mail_driver', 255)->default('smtp');
             $table->string('mail_host', 255)->nullable();

@@ -13,7 +13,7 @@
 | Auth          | Laravel Fortify (login, 2FA, passkeys, password reset) |
 | Authorization | Spatie Permission (RBAC)                               |
 | Routes (TS)   | Laravel Wayfinder                                      |
-| Database      | PostgreSQL (dev: SQLite)                               |
+| Database      | MySQL 8+ (also supports PostgreSQL; tests: SQLite)     |
 | Queue         | Database driver                                        |
 | Testing       | Pest 4                                                 |
 

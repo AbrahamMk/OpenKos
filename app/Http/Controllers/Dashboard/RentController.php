@@ -127,15 +127,19 @@ class RentController extends Controller
 
         $progressTotal = $outstandingCount + $tabCounts['paid'];
 
+        // Embed a quoted ISO currency literal (validated by MoneyConverter) so SELECT and
+        // GROUP BY are identical expressions. Bound placeholders break MySQL ONLY_FULL_GROUP_BY
+        // because each ? is treated as a distinct parameter even when the values match.
+        $defaultCurrencySql = DB::connection()->getPdo()->quote($money->normalizeCurrency());
+
         $paymentStats = Payment::query()
             ->where('status', PaymentStatus::Confirmed->value)
             ->whereHas('invoice', fn (Builder $q) => $q
                 ->whereHas('lease', fn (Builder $q) => $q->whereIn('property_id', $accessiblePropertyIds)))
             ->selectRaw(
-                'COALESCE(currency, ?) as currency, COALESCE(SUM(amount), 0) as amount, MAX(payment_date) as last_payment_at',
-                [$money->normalizeCurrency()],
+                "COALESCE(currency, {$defaultCurrencySql}) as currency, COALESCE(SUM(amount), 0) as amount, MAX(payment_date) as last_payment_at",
             )
-            ->groupByRaw('COALESCE(currency, ?)', [$money->normalizeCurrency()])
+            ->groupByRaw("COALESCE(currency, {$defaultCurrencySql})")
             ->toBase()
             ->get();
         $collectedAmounts = $paymentStats

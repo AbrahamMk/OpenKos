@@ -9,8 +9,8 @@ The production Compose reference contains only the application roles:
 - `queue`: database-backed Laravel queue worker
 - `scheduler`: Laravel scheduler
 
-PostgreSQL is external. Database-backed cache and sessions remain the default,
-and production does not require Redis.
+MySQL (or PostgreSQL) is external. Database-backed cache and sessions remain the
+default, and production does not require Redis.
 
 ## Configuration
 
@@ -21,7 +21,7 @@ including:
 - `APP_URL`
 - `APP_ENV=production`
 - `APP_DEBUG=false`
-- PostgreSQL connection settings
+- MySQL (or PostgreSQL) connection settings
 - `QUEUE_CONNECTION=database`
 - `CACHE_STORE=database`
 - `SESSION_DRIVER=database`

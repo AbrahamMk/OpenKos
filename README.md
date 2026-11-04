@@ -27,7 +27,7 @@ OpenKOS handles the full rental lifecycle — properties, units, leases, tenants
 - **PHP 8.4+** with required extensions (BCMath, Ctype, JSON, Mbstring, OpenSSL, PDO, Tokenizer, XML)
 - **Composer** (PHP package manager)
 - **Node.js 22+** and **npm** (for frontend assets)
-- **PostgreSQL 16+** (required — SQLite and MySQL are not tested)
+- **MySQL 8+** (default for local/XAMPP). PostgreSQL 16+ remains supported.
 
 ## Quick Start
 

@@ -43,7 +43,7 @@ return new class extends Migration
 
         $driver = Schema::getConnection()->getDriverName();
 
-        if (in_array($driver, ['pgsql', 'mysql'], true)) {
+        if (in_array($driver, ['pgsql', 'mysql', 'mariadb'], true)) {
             DB::statement("alter table applications add constraint applications_target_columns_check check ((target_type = '".ApplicationTargetType::WholeProperty->value."' and unit_type_id is null) or (target_type = '".ApplicationTargetType::UnitType->value."' and unit_type_id is not null))");
         }
 

@@ -154,8 +154,8 @@ class InstallCommand extends Command
     {
         $connection = $this->choice(
             'Which database driver?',
-            ['pgsql' => 'PostgreSQL', 'mysql' => 'MySQL', 'sqlite' => 'SQLite'],
-            'pgsql',
+            ['mysql' => 'MySQL', 'pgsql' => 'PostgreSQL', 'sqlite' => 'SQLite'],
+            'mysql',
         );
 
         $env = File::get($envPath);

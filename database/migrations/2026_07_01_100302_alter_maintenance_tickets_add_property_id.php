@@ -15,28 +15,14 @@ return new class extends Migration
             $table->string('location')->nullable()->after('unit_id');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE maintenance_tickets ALTER COLUMN unit_id DROP NOT NULL');
-        } elseif (DB::getDriverName() === 'sqlite') {
-            Schema::table('maintenance_tickets', function (Blueprint $table) {
-                $table->dropForeign(['unit_id']);
-            });
-
-            Schema::table('maintenance_tickets', function (Blueprint $table) {
-                $table->unsignedBigInteger('unit_id_new')->nullable()->after('location');
-            });
-
-            DB::statement('UPDATE maintenance_tickets SET unit_id_new = unit_id');
-
-            Schema::table('maintenance_tickets', function (Blueprint $table) {
-                $table->dropColumn('unit_id');
-                $table->renameColumn('unit_id_new', 'unit_id');
-            });
-
-            Schema::table('maintenance_tickets', function (Blueprint $table) {
-                $table->foreign('unit_id')->references('id')->on('units')->cascadeOnDelete();
-            });
-        }
+        match (DB::getDriverName()) {
+            'pgsql' => DB::statement('ALTER TABLE maintenance_tickets ALTER COLUMN unit_id DROP NOT NULL'),
+            'mysql', 'mariadb' => Schema::table('maintenance_tickets', function (Blueprint $table) {
+                $table->unsignedBigInteger('unit_id')->nullable()->change();
+            }),
+            'sqlite' => $this->makeSqliteUnitIdNullable(),
+            default => throw new LogicException('The maintenance ticket property migration does not support this database driver.'),
+        };
     }
 
     public function down(): void
@@ -49,8 +35,34 @@ return new class extends Migration
             $table->dropColumn('location');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE maintenance_tickets ALTER COLUMN unit_id SET NOT NULL');
-        }
+        match (DB::getDriverName()) {
+            'pgsql' => DB::statement('ALTER TABLE maintenance_tickets ALTER COLUMN unit_id SET NOT NULL'),
+            'mysql', 'mariadb' => Schema::table('maintenance_tickets', function (Blueprint $table) {
+                $table->unsignedBigInteger('unit_id')->nullable(false)->change();
+            }),
+            default => null,
+        };
+    }
+
+    private function makeSqliteUnitIdNullable(): void
+    {
+        Schema::table('maintenance_tickets', function (Blueprint $table) {
+            $table->dropForeign(['unit_id']);
+        });
+
+        Schema::table('maintenance_tickets', function (Blueprint $table) {
+            $table->unsignedBigInteger('unit_id_new')->nullable()->after('location');
+        });
+
+        DB::statement('UPDATE maintenance_tickets SET unit_id_new = unit_id');
+
+        Schema::table('maintenance_tickets', function (Blueprint $table) {
+            $table->dropColumn('unit_id');
+            $table->renameColumn('unit_id_new', 'unit_id');
+        });
+
+        Schema::table('maintenance_tickets', function (Blueprint $table) {
+            $table->foreign('unit_id')->references('id')->on('units')->cascadeOnDelete();
+        });
     }
 };

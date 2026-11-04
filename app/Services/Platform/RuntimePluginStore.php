@@ -21,9 +21,11 @@ final class RuntimePluginStore
     public function __construct()
     {
         $configuredPath = (string) config('platform.runtime.path');
-        $path = str_starts_with($configuredPath, DIRECTORY_SEPARATOR)
-            ? rtrim($configuredPath, DIRECTORY_SEPARATOR)
-            : base_path(trim($configuredPath, DIRECTORY_SEPARATOR));
+        // Windows absolute paths start with a drive letter (C:\...), not DIRECTORY_SEPARATOR.
+        // Treating them as relative made base_path() double the root and fail discovery.
+        $path = $this->isAbsolutePath($configuredPath)
+            ? rtrim($configuredPath, "\\/")
+            : base_path(trim($configuredPath, "\\/"));
         $this->assertConfiguredPathHasNoSymlink($path);
         $this->root = $this->canonicalizePath($path);
         $basePath = realpath(base_path());
@@ -1816,6 +1818,20 @@ final class RuntimePluginStore
         }
 
         $this->deleteDirectory($path);
+    }
+
+    private function isAbsolutePath(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+
+        if (str_starts_with($path, '/') || str_starts_with($path, '\\')) {
+            return true;
+        }
+
+        // Windows drive paths: C:\... or C:/...
+        return (bool) preg_match('/^[A-Za-z]:[\\\\\\/]/', $path);
     }
 
     private function assertSafeManagedPath(string $path): void
