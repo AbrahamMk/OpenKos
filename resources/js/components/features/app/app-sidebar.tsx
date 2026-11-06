@@ -50,6 +50,7 @@ import roles from '@/routes/roles';
 import amenities from '@/routes/settings/amenities';
 import expenseCategories from '@/routes/settings/expense-categories';
 import propertyTypes from '@/routes/settings/property-types';
+import applications from '@/routes/applications';
 import tenants from '@/routes/tenants';
 import userRoutes from '@/routes/users';
 import type { Auth, NavItem, NavSection } from '@/types';
@@ -313,6 +314,11 @@ export function AppSidebar() {
                                 ...(isOwner ||
                                 permissions.includes('tenants.view')
                                     ? [
+                                          {
+                                              title: 'Applications',
+                                              href: applications.index(),
+                                              icon: ListChecks,
+                                          },
                                           {
                                               title: 'Tenants',
                                               href: tenants.index(),

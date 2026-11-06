@@ -30,7 +30,12 @@ final class ApplicationController extends Controller
             ->get();
 
         return Inertia::render('applications/index', [
-            'applications' => $applications->map(fn (Application $application): array => $this->applicantProjection($application))->values(),
+            'applications' => $applications->map(
+                fn (Application $application): array => $this->projection(
+                    $application,
+                    ! $isOperator,
+                ),
+            )->values(),
             'operator' => $isOperator,
         ]);
     }
@@ -127,10 +132,11 @@ final class ApplicationController extends Controller
             'rental_billing_unit' => $application->rental_billing_unit,
             'rental_billing_interval' => $application->rental_billing_interval,
             'rental_currency' => $application->rental_currency,
-            'rental_amount' => $application->rental_amount,
+            'rental_amount' => $application->rental_amount !== null ? (string) $application->rental_amount : null,
             'applicant_message' => $application->applicant_message,
             'applicant_feedback' => $application->applicant_feedback,
             'converted_at' => $application->converted_at?->toIso8601String(),
+            'submitted_at' => $application->created_at?->toIso8601String(),
         ];
     }
 

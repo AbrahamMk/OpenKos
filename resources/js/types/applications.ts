@@ -22,6 +22,7 @@ export type ApplicantApplication = {
     applicant_message: string | null;
     applicant_feedback: string | null;
     converted_at: string | null;
+    submitted_at?: string | null;
 };
 
 export type OperatorApplication = ApplicantApplication & {
@@ -40,7 +41,7 @@ export type ApplicationTargetDetails = {
 };
 
 export type ApplicationsIndexProps = {
-    applications: ApplicantApplication[];
+    applications: Array<ApplicantApplication | OperatorApplication>;
     operator: boolean;
 };
 
@@ -55,6 +56,7 @@ export type ApplicationShowProps = {
 
 export type ApplicationIndexPageProps = {
     flash?: { status?: string };
+    errors?: { application?: string };
 };
 
 export type ApplicationTransitionFormData = {
