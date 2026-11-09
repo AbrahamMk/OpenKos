@@ -73,7 +73,10 @@ export default function InvoiceDetail({
                         {invoice.reference ?? t('Invoice')}
                     </h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        {formatPeriod(invoice.period_start)}
+                        {formatPeriod(
+                            invoice.period_start,
+                            invoice.period_end,
+                        )}
                     </p>
                     <p className="mt-3 text-sm text-muted-foreground">
                         {lease.reference ?? 'Lease'}

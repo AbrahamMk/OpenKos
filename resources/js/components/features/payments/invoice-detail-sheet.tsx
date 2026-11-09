@@ -103,6 +103,7 @@ export default function InvoiceDetailSheet({
                                             <p className="font-medium">
                                                 {formatPeriod(
                                                     invoice.period_start,
+                                                    invoice.period_end,
                                                 )}
                                             </p>
                                             <p className="text-sm text-muted-foreground">

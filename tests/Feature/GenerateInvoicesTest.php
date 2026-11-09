@@ -138,6 +138,50 @@ it('respects the two month horizon', function () {
     expect($lease->invoices()->whereDate('period_start', '>', $horizon)->count())->toBe(0);
 });
 
+it('generates multi-month billing period invoices with the full period span', function () {
+    $lease = createActiveLease([
+        'start_date' => now()->startOfMonth()->toDateString(),
+        'billing_interval' => 3,
+        'billing_unit' => 'month',
+        'rent_amount' => 3_000_000,
+        'rent_due_day' => 1,
+    ]);
+
+    $count = app(GenerateInvoices::class)->execute($lease);
+
+    expect($count)->toBeGreaterThan(0);
+
+    $invoice = $lease->invoices()->orderBy('period_start')->first();
+
+    expect($invoice->period_start->toDateString())
+        ->toBe(now()->startOfMonth()->toDateString())
+        ->and($invoice->period_end->toDateString())
+        ->toBe(now()->startOfMonth()->addMonthsNoOverflow(3)->subDay()->toDateString())
+        ->and((float) $invoice->total)->toBe(3_000_000.0)
+        ->and($invoice->lineItems->first()->description)
+        ->toContain('–');
+});
+
+it('generates the next cycle for multi-month leases that start after the due day', function () {
+    $lease = createActiveLease([
+        'start_date' => now()->startOfMonth()->addDays(8)->toDateString(),
+        'billing_interval' => 3,
+        'billing_unit' => 'month',
+        'rent_amount' => 3_000_000,
+        'rent_due_day' => 1,
+    ]);
+
+    $count = app(GenerateInvoices::class)->execute($lease);
+    $invoice = $lease->invoices()->orderBy('period_start')->first();
+
+    expect($count)->toBeGreaterThan(0)
+        ->and($invoice)->not->toBeNull()
+        ->and($invoice->period_start->toDateString())
+        ->toBe(now()->startOfMonth()->addMonthsNoOverflow(3)->toDateString())
+        ->and($invoice->period_end->toDateString())
+        ->toBe(now()->startOfMonth()->addMonthsNoOverflow(6)->subDay()->toDateString());
+});
+
 it('does not generate past the lease end date', function () {
     $lease = createActiveLease([
         'start_date' => now()->subMonth()->startOfMonth(),

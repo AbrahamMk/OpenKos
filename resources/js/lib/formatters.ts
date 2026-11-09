@@ -256,11 +256,28 @@ function minorToMajor(minor: bigint, scale: number): string {
     return `${value.slice(0, -scale)}.${value.slice(-scale)}`;
 }
 
-export function formatPeriod(periodStart: string, locale?: string): string {
-    const [y, m] = periodStart.split('-');
+export function formatPeriod(
+    periodStart: string,
+    periodEnd?: string | null,
+    locale?: string,
+): string {
+    const resolvedLocale = locale ?? displayLocale;
+    const startLabel = monthYearLabel(periodStart, resolvedLocale);
+
+    if (!periodEnd) {
+        return startLabel;
+    }
+
+    const endLabel = monthYearLabel(periodEnd, resolvedLocale);
+
+    return startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+}
+
+function monthYearLabel(period: string, locale: string): string {
+    const [y, m] = period.split('-');
     const date = new Date(Date.UTC(Number(y), Number(m) - 1, 1));
 
-    return date.toLocaleDateString(locale ?? displayLocale, {
+    return date.toLocaleDateString(locale, {
         year: 'numeric',
         month: 'long',
         timeZone: 'UTC',

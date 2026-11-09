@@ -132,7 +132,10 @@ export default function InvoiceDetail({
                                 {invoice.reference ?? 'Invoice'}
                             </h2>
                             <p className="text-sm text-muted-foreground">
-                                {formatPeriod(invoice.period_start)}
+                                {formatPeriod(
+                                    invoice.period_start,
+                                    invoice.period_end,
+                                )}
                             </p>
                         </div>
                         <div className="flex flex-col items-end gap-3">

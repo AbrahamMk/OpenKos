@@ -3,6 +3,7 @@
 namespace App\Actions\Invoices;
 
 use App\Actions\Utility\BillUtilityReadings;
+use App\Enums\BillingUnit;
 use App\Enums\InvoiceStatus;
 use App\Events\Invoice\InvoiceGenerated;
 use App\Models\Invoice;
@@ -18,6 +19,9 @@ class GenerateInvoices
 {
     private const MAX_UNIQUE_RETRIES = 3;
 
+    /** Minimum calendar-month look-ahead; must stay >= reminder lookahead. */
+    private const MIN_HORIZON_MONTHS = 2;
+
     public function __construct(
         private MoneyConverter $money,
         private BillUtilityReadings $billUtilityReadings,
@@ -26,8 +30,9 @@ class GenerateInvoices
     /**
      * Materialize invoices for upcoming billing periods.
      *
-     * Horizon is 2 months ahead — must stay >= the reminder lookahead so
-     * reminders never encounter an un-invoiced period.
+     * Horizon is at least 2 months ahead (reminder invariant), and for
+     * multi-month/year billing it expands to one full billing interval so a
+     * mid-period start that skips to the next cycle still gets an invoice.
      */
     public function execute(?Lease $lease = null): int
     {
@@ -58,10 +63,13 @@ class GenerateInvoices
             return 0;
         }
 
-        $horizon = now()->addMonthsNoOverflow(2)->endOfMonth();
         $candidates = [];
+        $horizonByLease = [];
 
         foreach ($leases as $lockedLease) {
+            $horizon = $this->generationHorizon($lockedLease);
+            $horizonByLease[$lockedLease->getKey()] = $horizon;
+
             foreach ($lockedLease->schedule() as $period) {
                 if ($period->period_start->gt($horizon)) {
                     continue;
@@ -86,9 +94,11 @@ class GenerateInvoices
 
         $leaseIds = $leases->modelKeys();
         $minimumPeriod = collect($candidates)->min('period_start')->toDateString();
+        $maximumPeriod = collect($horizonByLease)
+            ->max(fn (CarbonInterface $horizon): string => $horizon->toDateString());
         $existingKeys = Invoice::query()
             ->whereIn('lease_id', $leaseIds)
-            ->whereBetween('period_start', [$minimumPeriod, $horizon])
+            ->whereBetween('period_start', [$minimumPeriod, $maximumPeriod])
             ->get(['id', 'lease_id', 'period_start'])
             ->keyBy(fn (Invoice $invoice): string => $this->periodKey($invoice->lease_id, $invoice->period_start));
 
@@ -124,7 +134,7 @@ class GenerateInvoices
             ]);
             $persistedInvoices = Invoice::query()
                 ->whereIn('lease_id', $newCandidates->pluck('lease_id')->unique()->values())
-                ->whereBetween('period_start', [$minimumPeriod, $horizon])
+                ->whereBetween('period_start', [$minimumPeriod, $maximumPeriod])
                 ->get()
                 ->keyBy(fn (Invoice $invoice): string => $this->periodKey($invoice->lease_id, $invoice->period_start));
 
@@ -145,7 +155,10 @@ class GenerateInvoices
                 return [
                     'invoice_id' => $invoice->getKey(),
                     'type' => 'rent',
-                    'description' => 'Rent '.$invoice->period_start->format('F Y'),
+                    'description' => $this->rentLineDescription(
+                        $invoice->period_start,
+                        $candidate['period_end'],
+                    ),
                     'amount' => $candidate['amount'],
                     'created_at' => $timestamp,
                     'updated_at' => $timestamp,
@@ -184,6 +197,37 @@ class GenerateInvoices
     private function periodKey(int $leaseId, CarbonInterface $periodStart): string
     {
         return $leaseId.'|'.$periodStart->toDateString();
+    }
+
+    /**
+     * Look far enough ahead that the next billing cycle is always included,
+     * even when a mid-month start skips the current cycle by a full interval.
+     */
+    private function generationHorizon(Lease $lease): CarbonInterface
+    {
+        $interval = max(1, (int) ($lease->billing_interval ?? 1));
+        $unit = $lease->billing_unit instanceof BillingUnit
+            ? $lease->billing_unit
+            : BillingUnit::tryFrom((string) $lease->billing_unit) ?? BillingUnit::Month;
+
+        $intervalMonths = match ($unit) {
+            BillingUnit::Year => $interval * 12,
+            BillingUnit::Month => $interval,
+            default => self::MIN_HORIZON_MONTHS,
+        };
+
+        return now()
+            ->addMonthsNoOverflow(max(self::MIN_HORIZON_MONTHS, $intervalMonths))
+            ->endOfMonth();
+    }
+
+    private function rentLineDescription(CarbonInterface $periodStart, CarbonInterface $periodEnd): string
+    {
+        if ($periodStart->isSameMonth($periodEnd)) {
+            return 'Rent '.$periodStart->format('F Y');
+        }
+
+        return 'Rent '.$periodStart->format('M Y').' – '.$periodEnd->format('M Y');
     }
 
     private function isRetryableInvoiceUniqueViolation(QueryException $exception): bool

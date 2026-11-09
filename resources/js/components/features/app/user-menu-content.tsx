@@ -1,10 +1,12 @@
 import { Link, router } from '@inertiajs/react';
-import { LogOut, UserRound } from 'lucide-react';
+import { LogOut, Moon, Sun, UserRound } from 'lucide-react';
 import { UserInfo } from '@/components/features/app/user-info';
 import {
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { useAppearance } from '@/hooks/use-appearance';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { t } from '@/lib/i18n';
 import { logout } from '@/routes';
@@ -17,6 +19,9 @@ type Props = {
 
 export function UserMenuContent({ user, profileHref }: Props) {
     const cleanup = useMobileNavigation();
+    const { resolvedAppearance, updateAppearance } = useAppearance();
+    const isDark = resolvedAppearance === 'dark';
+    const ThemeIcon = isDark ? Sun : Moon;
 
     const handleLogout = () => {
         cleanup();
@@ -49,6 +54,16 @@ export function UserMenuContent({ user, profileHref }: Props) {
                     <LogOut className="mr-2" />
                     {t('Log out')}
                 </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+                onSelect={(event) => {
+                    event.preventDefault();
+                    updateAppearance(isDark ? 'light' : 'dark');
+                }}
+            >
+                <ThemeIcon className="mr-2" />
+                {isDark ? t('Light mode') : t('Dark mode')}
             </DropdownMenuItem>
         </>
     );

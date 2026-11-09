@@ -23,7 +23,11 @@ export default function InvoiceActionItem({
             <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                     <p className="min-w-0 truncate font-medium">
-                        {formatPeriod(invoice.period_start)} {t('Rent')}
+                        {formatPeriod(
+                            invoice.period_start,
+                            invoice.period_end,
+                        )}{' '}
+                        {t('Rent')}
                     </p>
                     <StatusBadge domain="tenant_invoice" value={status} />
                 </div>
